@@ -55,6 +55,36 @@ const upload = multer({
 // Health check
 app.get('/', (req, res) => res.send('running'));
 
+// ---------------------------------------------------------
+// NEW: Endpoint to list all files (Required by Python client)
+// ---------------------------------------------------------
+app.get('/files', authenticateToken, (req, res) => {
+  fs.readdir(uploadDir, (err, files) => {
+    if (err) {
+      return res.status(500).json({ error: 'Unable to scan files' });
+    }
+    // Return the list in the format: { "files": ["file1.html", "file2.png"] }
+    res.json({ files: files });
+  });
+});
+
+// ---------------------------------------------------------
+// NEW: Endpoint to download a specific file (Required by Python client)
+// ---------------------------------------------------------
+app.get('/files/:filename', authenticateToken, (req, res) => {
+  // path.basename ensures the user cannot request files outside the directory (e.g. ../../.env)
+  const filename = path.basename(req.params.filename); 
+  const filepath = path.join(uploadDir, filename);
+
+  // Check if file exists before trying to send it
+  if (!fs.existsSync(filepath)) {
+    return res.status(404).json({ error: 'File not found' });
+  }
+
+  // res.sendFile automatically sets the correct Content-Type and streams the data
+  res.sendFile(filepath);
+});
+
 // Single file upload (field name = "file")
 app.post(
   '/upload',
